@@ -1,0 +1,23 @@
+# Temp and output files
+*~
+*.swp
+*.swo
+target/
+dist/
+lib/
+out/
+
+# IDE related files
+*.iml
+*.ipr
+*.iws
+.idea/
+.classpath
+.project
+.settings/
+
+# Mac OS related files
+.DS_Store
+.fseventsd
+.settings/
+
