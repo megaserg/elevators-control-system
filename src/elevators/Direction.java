@@ -1,7 +1,7 @@
 package elevators;
 
 public enum Direction {
-    STILL,
+    IDLE,
     UP,
     DOWN,
 }

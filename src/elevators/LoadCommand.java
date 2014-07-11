@@ -1,12 +1,12 @@
 package elevators;
 
-import java.util.List;
+import java.util.Set;
 
 public class LoadCommand implements Command {
     public final int elevatorId;
-    public final List<Integer> passengerIds;
+    public final Set<Integer> passengerIds;
 
-    public LoadCommand(int elevatorId, List<Integer> passengerIds) {
+    public LoadCommand(int elevatorId, Set<Integer> passengerIds) {
         this.elevatorId = elevatorId;
         this.passengerIds = passengerIds;
     }
