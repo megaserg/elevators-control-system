@@ -34,6 +34,21 @@ public class ControlSystem implements ControlSystemInterface {
         List<Command> commands = new ArrayList<>();
         Set<Elevator> stepMade = new HashSet<>();
 
+        // If arrived to target, unload passengers
+        for (Elevator elevator : state.elevators) {
+            Set<Passenger> toUnload = new HashSet<>();
+            for (Passenger passenger : elevator.passengers()) {
+                if (passenger.targetFloor == elevator.floor()) {
+                    toUnload.add(passenger);
+                }
+            }
+            if (toUnload.size() > 0) {
+                elevator.unloadPassengers(toUnload);
+                commands.add(new UnloadCommand(elevator.info.id, passengersToIds(toUnload)));
+                stepMade.add(elevator);
+            }
+        }
+
         // Assign unassigned passengers to idle elevators
         Set<Elevator> idles = getIdleElevators();
         for (Map.Entry<Integer, Set<Passenger>> entry : queue.entrySet()) {
@@ -56,30 +71,15 @@ public class ControlSystem implements ControlSystemInterface {
             }
         }
 
-        // If arrived to target, unload passengers
-        for (Elevator elevator : state.elevators) {
-            Set<Passenger> toUnload = new HashSet<>();
-            for (Passenger passenger : elevator.passengers()) {
-                if (passenger.targetFloor == elevator.floor()) {
-                    toUnload.add(passenger);
-                }
-            }
-            if (toUnload.size() > 0) {
-                elevator.unloadPassengers(toUnload);
-                commands.add(new UnloadCommand(elevator.info.id, passengersToIds(toUnload)));
-                stepMade.add(elevator);
-            }
-        }
-
         // If passengers want to go along, load them
         for (Elevator elevator : state.elevators) {
             if (haveRequests(elevator, elevator.floor())) {
                 Set<Passenger> toLoad = new HashSet<>();
                 for (Passenger passenger : queue.get(elevator.floor())) {
-                    if (passenger.targetFloor > elevator.floor() && elevator.direction() != Direction.DOWN ||
-                        passenger.targetFloor < elevator.floor() && elevator.direction() != Direction.UP) {
+                    assert(elevator.direction() != Direction.IDLE);
+                    if (passenger.targetFloor > elevator.floor() && passenger.targetFloor <= elevator.targetFloor() && elevator.direction() == Direction.UP ||
+                        passenger.targetFloor < elevator.floor() && passenger.targetFloor >= elevator.targetFloor() && elevator.direction() == Direction.DOWN) {
                         toLoad.add(passenger);
-                        elevator.addTarget(passenger.targetFloor);
                     }
                 }
                 if (toLoad.size() > 0) {

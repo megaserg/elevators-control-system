@@ -58,6 +58,10 @@ public final class Elevator {
         direction = d;
     }
 
+    public int targetFloor() {
+        return targetFloor;
+    }
+
     public void addTarget(int target) {
         if (target > floor) {
             targetFloor = Math.max(targetFloor, target);
@@ -70,10 +74,6 @@ public final class Elevator {
 
     public boolean isOnTarget() {
         return floor == targetFloor;
-    }
-
-    public boolean isIdle() {
-        return direction == Direction.IDLE;
     }
 
     public void makeIdle() {
