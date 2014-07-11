@@ -56,17 +56,22 @@ public class ControlSystem implements ControlSystemInterface {
             int floor = entry.getKey();
             Set<Passenger> waiting = entry.getValue();
             for (Passenger passenger : waiting) {
-                if (assigned.containsKey(passenger)) continue;
-                Elevator closest = null;
-                for (Elevator idle : idles) {
-                    if (closest == null || Math.abs(closest.floor() - floor) > Math.abs(idle.floor() - floor)) {
-                        closest = idle;
+                if (!assigned.containsKey(passenger)) {
+                    Elevator closest = null;
+                    for (Elevator idle : idles) {
+                        if (closest == null || Math.abs(closest.floor() - floor) > Math.abs(idle.floor() - floor)) {
+                            closest = idle;
+                        }
                     }
-                }
-                if (closest != null) {
-                    idles.remove(closest);
-                    assigned.put(passenger, closest);
-                    closest.addTarget(floor);
+                    if (closest != null) {
+                        idles.remove(closest);
+                        assigned.put(passenger, closest);
+                        if (closest.floor() == floor) {
+                            closest.addTarget(passenger.targetFloor);
+                        } else {
+                            closest.addTarget(floor);
+                        }
+                    }
                 }
             }
         }
@@ -75,13 +80,24 @@ public class ControlSystem implements ControlSystemInterface {
         for (Elevator elevator : state.elevators) {
             if (haveRequests(elevator, elevator.floor())) {
                 Set<Passenger> toLoad = new HashSet<>();
+
+                if (elevator.isOnTarget()) {
+                    for (Passenger passenger : queue.get(elevator.floor())) {
+                        if (assigned.get(passenger) == elevator) {
+                            toLoad.add(passenger);
+                            elevator.addTarget(passenger.targetFloor);
+                        }
+                    }
+                }
+
                 for (Passenger passenger : queue.get(elevator.floor())) {
-                    assert(elevator.direction() != Direction.IDLE);
+                    assert elevator.direction() != Direction.IDLE;
                     if (passenger.targetFloor > elevator.floor() && passenger.targetFloor <= elevator.targetFloor() && elevator.direction() == Direction.UP ||
                         passenger.targetFloor < elevator.floor() && passenger.targetFloor >= elevator.targetFloor() && elevator.direction() == Direction.DOWN) {
                         toLoad.add(passenger);
                     }
                 }
+
                 if (toLoad.size() > 0) {
                     queue.get(elevator.floor()).removeAll(toLoad);
                     for (Passenger passenger : toLoad) {
@@ -134,11 +150,15 @@ public class ControlSystem implements ControlSystemInterface {
         Set<Passenger> waiting = queue.get(floor);
         if (waiting != null && waiting.size() > 0) {
             for (Passenger passenger : waiting) {
-                if (!assigned.containsKey(passenger) || assigned.get(passenger) == elevator) {
+                if (isAssignedTo(elevator, passenger)) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    private boolean isAssignedTo(Elevator elevator, Passenger passenger) {
+        return !assigned.containsKey(passenger) || assigned.get(passenger) == elevator;
     }
 }
