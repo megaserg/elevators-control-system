@@ -9,10 +9,12 @@ import java.util.Set;
 
 public class ControlSystem implements ControlSystemInterface {
     private final Map<Integer, Set<Passenger>> queue;
+    private final Map<Passenger, Elevator> assigned;
     private final ElevatorGroup state;
 
     public ControlSystem(int numOfElevators, int buildingHeight) {
         this.queue = new HashMap<>();
+        this.assigned = new HashMap<>();
         this.state = new ElevatorGroup(numOfElevators, buildingHeight);
     }
 
@@ -35,12 +37,11 @@ public class ControlSystem implements ControlSystemInterface {
         // Assign unassigned passengers to idle elevators
         Set<Elevator> idles = getIdleElevators();
         for (Map.Entry<Integer, Set<Passenger>> entry : queue.entrySet()) {
-            if (idles.size() == 0) {
-                break;
-            }
+            if (idles.size() == 0) break;
             int floor = entry.getKey();
             Set<Passenger> waiting = entry.getValue();
             for (Passenger passenger : waiting) {
+                if (assigned.containsKey(passenger)) continue;
                 Elevator closest = null;
                 for (Elevator idle : idles) {
                     if (closest == null || Math.abs(closest.floor() - floor) > Math.abs(idle.floor() - floor)) {
@@ -49,7 +50,7 @@ public class ControlSystem implements ControlSystemInterface {
                 }
                 if (closest != null) {
                     idles.remove(closest);
-                    waiting.remove(passenger);
+                    assigned.put(passenger, closest);
                     closest.addTarget(floor);
                 }
             }
@@ -65,9 +66,6 @@ public class ControlSystem implements ControlSystemInterface {
             }
             if (toUnload.size() > 0) {
                 elevator.unloadPassengers(toUnload);
-                if (elevator.isOnTarget()) {
-                    elevator.makeIdle();
-                }
                 commands.add(new UnloadCommand(elevator.info.id, passengersToIds(toUnload)));
                 stepMade.add(elevator);
             }
@@ -75,17 +73,20 @@ public class ControlSystem implements ControlSystemInterface {
 
         // If passengers want to go along, load them
         for (Elevator elevator : state.elevators) {
-            if (haveRequests(elevator.floor())) {
+            if (haveRequests(elevator, elevator.floor())) {
                 Set<Passenger> toLoad = new HashSet<>();
                 for (Passenger passenger : queue.get(elevator.floor())) {
-                    if (passenger.targetFloor > elevator.floor() && elevator.direction() == Direction.UP ||
-                        passenger.targetFloor < elevator.floor() && elevator.direction() == Direction.DOWN) {
+                    if (passenger.targetFloor > elevator.floor() && elevator.direction() != Direction.DOWN ||
+                        passenger.targetFloor < elevator.floor() && elevator.direction() != Direction.UP) {
                         toLoad.add(passenger);
                         elevator.addTarget(passenger.targetFloor);
                     }
                 }
                 if (toLoad.size() > 0) {
                     queue.get(elevator.floor()).removeAll(toLoad);
+                    for (Passenger passenger : toLoad) {
+                        assigned.remove(passenger);
+                    }
                     elevator.loadPassengers(toLoad);
                     commands.add(new LoadCommand(elevator.info.id, passengersToIds(toLoad)));
                     stepMade.add(elevator);
@@ -99,6 +100,12 @@ public class ControlSystem implements ControlSystemInterface {
                 elevator.moveOneFloor();
                 commands.add(new MoveCommand(elevator.info.id, elevator.direction()));
                 stepMade.add(elevator);
+            }
+        }
+
+        for (Elevator elevator : state.elevators) {
+            if (elevator.isOnTarget()) {
+                elevator.makeIdle();
             }
         }
 
@@ -123,8 +130,15 @@ public class ControlSystem implements ControlSystemInterface {
         return ids;
     }
 
-    private boolean haveRequests(int floor) {
+    private boolean haveRequests(Elevator elevator, int floor) {
         Set<Passenger> waiting = queue.get(floor);
-        return waiting != null && waiting.size() > 0;
+        if (waiting != null && waiting.size() > 0) {
+            for (Passenger passenger : waiting) {
+                if (!assigned.containsKey(passenger) || assigned.get(passenger) == elevator) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
